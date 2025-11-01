@@ -305,7 +305,7 @@ class GiveawaysController extends Controller
                     'giveaway_order.amount',
                     'orders.created_at',
                     'orders.status'
-                ]);
+                ])->where('orders.status', 'completed');
             
             $ordersData = $query->orderBy('orders.created_at', 'desc')
                 ->get()
