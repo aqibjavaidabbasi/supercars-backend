@@ -19,6 +19,7 @@ Route::prefix('giveaways')->group(function () {
     Route::get('winners', [GiveawaysController::class, 'getWinners']);
     Route::get('{id}', [GiveawaysController::class, 'index']);
     Route::get('{id}/orders', [GiveawaysController::class, 'getOrders']);
+    Route::get('{id}/orders/by-ticket', [GiveawaysController::class, 'getOrdersByTicket']);
     Route::post('{id}/check-tickets', [GiveawaysController::class, 'checkTicketAvailability']);
 });
 

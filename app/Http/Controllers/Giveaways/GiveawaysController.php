@@ -273,4 +273,77 @@ class GiveawaysController extends Controller
             ], 500);
         }
     }
+
+    public function getOrdersByTicket(Request $request, $id): JsonResponse
+    {
+        try {
+            $giveaway = Giveaway::findOrFail($id);
+            
+            $ticketNumber = $request->query('ticket');
+            
+            if (!$ticketNumber) {
+                return response()->json([
+                    'error' => 'Ticket number is required'
+                ], 400);
+            }
+
+            Log::info('Ticket search request for giveaway ' . $id . ':', ['ticket_number' => $ticketNumber]);
+            
+            // Use JSON_CONTAINS to search for exact ticket number in JSON array
+            // Numbers are stored as integers in JSON, so search without quotes
+            $query = DB::table('giveaway_order')
+                ->join('orders', 'giveaway_order.order_id', '=', 'orders.id')
+                ->join('users', 'orders.user_id', '=', 'users.id')
+                ->where('giveaway_order.giveaway_id', $id)
+                ->whereRaw('JSON_CONTAINS(giveaway_order.numbers, ?)', [$ticketNumber])
+                ->select([
+                    'orders.id',
+                    'users.forenames',
+                    'users.surname', 
+                    'users.email',
+                    'giveaway_order.numbers',
+                    'giveaway_order.amount',
+                    'orders.created_at',
+                    'orders.status'
+                ]);
+            
+            $ordersData = $query->orderBy('orders.created_at', 'desc')
+                ->get()
+                ->map(function ($row) {
+                    $fullName = trim(($row->forenames ?? '') . ' ' . ($row->surname ?? ''));
+                    if (empty($fullName)) {
+                        $fullName = 'Unknown';
+                    }
+                    
+                    $numbers = json_decode($row->numbers, true) ?? [];
+                    
+                    return [
+                        'id' => $row->id,
+                        'fullName' => $fullName,
+                        'email' => $row->email ?? '',
+                        'ticket_numbers' => $numbers,
+                        'amount' => $row->amount,
+                        'created_at' => $row->created_at,
+                        'status' => $row->status,
+                    ];
+                });
+
+            Log::info('Orders found by ticket for giveaway ' . $id . ':', [
+                'count' => $ordersData->count(),
+                'ticket_number' => $ticketNumber
+            ]);
+
+            return response()->json($ordersData);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'Giveaway not found',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error fetching orders by ticket for giveaway ' . $id . ': ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to fetch orders by ticket',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
