@@ -324,16 +324,13 @@ class PaymentController extends Controller
             $shippingPostcode = $billingPostcode;
             $shippingStreet = $billingStreet;
             
-            // For PayPal with authorize intent, use PA (Preauthorization) instead of DB (Debit)
-            $paymentType = 'PA'; // Changed from DB to PA for PayPal authorize intent
-            
             $data = "entityId={$entityId}" .
                         "&customParameters[3DS2_enrolled]=true" .
                         "&customParameters[3DS2_flow]=challenge" .
                         ($environment === 'test' ? "&testMode=EXTERNAL" : "") .
                         "&amount=" . $amount .
                         "&currency=" . config('oppwa.payment.currency', 'GBP') .
-                        "&paymentType=" . $paymentType .
+                        "&paymentType=" . config('oppwa.payment.payment_type', 'DB') .
                         "&merchantTransactionId=" . $order->id .
                         "&customer.email=" . $user->email .
                         "&customer.givenName=" . $user->forenames .
@@ -559,6 +556,7 @@ class PaymentController extends Controller
             Log::info('Payment status determined from OPPWA', [
                 'order_id' => $order->id,
                 'resource_path' => $resourcePath,
+                'payment_brand' => $paymentStatus['paymentBrand'] ?? 'unknown',
                 'oppwa_result_code' => $resultCode,
                 'oppwa_result_description' => $paymentStatus['result']['description'] ?? 'unknown',
                 'determined_status' => $newStatus,
@@ -1270,6 +1268,16 @@ class PaymentController extends Controller
 
     private function determineOrderStatus(string $resultCode, array $payload = []): string
     {
+        // Log all PayPal-related responses for debugging
+        if (isset($payload['paymentBrand']) && $payload['paymentBrand'] === 'PAYPAL') {
+            Log::info("PayPal payment response detected", [
+                'result_code' => $resultCode,
+                'result_description' => $payload['result']['description'] ?? 'unknown',
+                'payment_status' => $payload['paymentStatus'] ?? null,
+                'full_payload' => $payload
+            ]);
+        }
+        
         // Check for explicit hold indicators in the payload
         $riskScore = $payload['risk']['score'] ?? null;
         $threeDSecureStatus = $payload['threeDSecure']['eci'] ?? null;
@@ -1296,6 +1304,12 @@ class PaymentController extends Controller
         // Success codes - payment completed successfully
         if (preg_match('/^(000\.000\.|000\.100\.1|000\.[36]|000\.400\.[1][12]0)/', $resultCode)) {
             Log::info("Payment successful", ['result_code' => $resultCode]);
+            return 'completed';
+        }
+        
+        // For PayPal specifically - any 000.xxx.xxx code is likely successful
+        if (isset($payload['paymentBrand']) && $payload['paymentBrand'] === 'PAYPAL' && preg_match('/^000\./', $resultCode)) {
+            Log::info("PayPal payment successful - 000 code detected", ['result_code' => $resultCode]);
             return 'completed';
         }
 
