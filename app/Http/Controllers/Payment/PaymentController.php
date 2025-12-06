@@ -336,6 +336,7 @@ class PaymentController extends Controller
                         "&billing.postcode=" . urlencode($billingPostcode) .
                         "&billing.state=" . urlencode($billingCity) .
                         "&billing.street1=" . urlencode($billingStreet) .
+                        "&customParameters[paypalReference]=true" .
                         "&integrity=true";
 
             $ch = curl_init();
