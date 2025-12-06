@@ -29,6 +29,7 @@ class NovaServiceProvider extends NovaApplicationServiceProvider
                         MenuItem::resource(\App\Nova\User::class),
                         MenuItem::resource(\App\Nova\Giveaway::class),
                         MenuItem::resource(\App\Nova\Order::class),
+                        MenuItem::resource(\App\Nova\DiscountCode::class),
                         MenuItem::resource(\App\Nova\Ticket::class),
                         MenuItem::resource(\App\Nova\Winner::class),
                         

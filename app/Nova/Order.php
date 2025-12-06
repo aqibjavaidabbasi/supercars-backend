@@ -86,6 +86,8 @@ class Order extends Resource
             Currency::make("Subtotal", 'original_total')->currency('GBP'),
             Currency::make("Amount Paid", 'total')->currency('GBP'),
             Currency::make("Credit Used", 'credit_used')->currency('GBP'),
+            Currency::make("Discount Amount", 'discount_amount')->currency('GBP')->hideFromIndex(),
+            BelongsTo::make('Discount Code', 'discountCode', \App\Nova\DiscountCode::class)->nullable()->hideFromIndex(),
             Text::make("Checkout ID", 'checkoutId')->hideFromIndex(),
             Badge::make('Payment Method', function () {
                 if ($this->credit_used > 0) {

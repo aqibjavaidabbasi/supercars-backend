@@ -86,6 +86,7 @@ class OrdersController extends Controller
             'cart.*.amount' => 'required|integer|min:1',
             'cart.*.numbers' => 'nullable|array',
             'cart.*.numbers.*' => 'integer',
+            'discount_code_id' => 'nullable|integer|exists:discount_codes,id',
         ]);
 
         $user = $request->user();
@@ -96,6 +97,21 @@ class OrdersController extends Controller
         foreach ($request->cart as $item) {
             $giveaway = $giveaways->get($item['id']);
             $total += $giveaway->price * $item['amount'];
+        }
+
+        // Handle discount code
+        $discountAmount = 0;
+        $discountCodeId = null;
+        if ($request->discount_code_id) {
+            $discountCode = \App\Models\DiscountCode::find($request->discount_code_id);
+            if ($discountCode) {
+                $validation = $discountCode->isValid($user, $total);
+                if ($validation['valid']) {
+                    $discountAmount = $discountCode->calculateDiscount($total);
+                    $total -= $discountAmount;
+                    $discountCodeId = $discountCode->id;
+                }
+            }
         }
 
         // Check ticket availability for all items
@@ -119,7 +135,7 @@ class OrdersController extends Controller
 
         $order = null;
 
-        DB::transaction(function () use ($request, $user, $total, $giveaways, &$order, $creditUsed) {
+        DB::transaction(function () use ($request, $user, $total, $giveaways, &$order, $creditUsed, $discountAmount, $discountCodeId) {
             // Deduct credit from user if any
             if ($creditUsed > 0) {
                 $user->credit = $user->credit - $creditUsed;
@@ -140,7 +156,15 @@ class OrdersController extends Controller
                 'country' => $request->country,
                 'cart' => $request->cart,
                 'credit_used' => $creditUsed,
+                'discount_code_id' => $discountCodeId,
+                'discount_amount' => $discountAmount,
             ]);
+
+            // Apply discount code to user if used
+            if ($discountCodeId) {
+                $discountCode = \App\Models\DiscountCode::find($discountCodeId);
+                $discountCode->applyToUser($user, $order);
+            }
 
             // Create credit transaction if credit was used
             if ($creditUsed > 0) {

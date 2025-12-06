@@ -53,6 +53,9 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('credit')->group(function () {
         Route::post('manage', [CreditController::class, 'manageCredit']);
     });
+
+    // Discount codes
+    Route::post('discount-codes/validate', [\App\Http\Controllers\DiscountCodeController::class, 'validate']);
 });
 
 // Payment result handler - needs to be outside auth since OPPWA redirects user here

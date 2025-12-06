@@ -28,6 +28,8 @@ class Order extends Model
           'checkoutId',
           'cart',
           'credit_used',
+          'discount_code_id',
+          'discount_amount',
       ];
 
     protected function casts() {
@@ -36,17 +38,18 @@ class Order extends Model
                 'status' => 'string',
                 'cart' => 'array',
                 'credit_used' => 'decimal:2',
+                'discount_amount' => 'decimal:2',
             ];
     }
 
     protected $appends = ['original_total'];
 
     /**
-     * Get the original order total before credit deduction.
+     * Get the original order total before credit and discount deductions.
      */
     public function getOriginalTotalAttribute(): float
     {
-        return (float) $this->total + (float) $this->credit_used;
+        return (float) $this->total + (float) $this->credit_used + (float) $this->discount_amount;
     }
 
     protected static function booted(): void
@@ -185,6 +188,14 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the discount code used for this order
+     */
+    public function discountCode(): BelongsTo
+    {
+        return $this->belongsTo(DiscountCode::class);
     }
 
     /**
