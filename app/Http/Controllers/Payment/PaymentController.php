@@ -318,13 +318,22 @@ class PaymentController extends Controller
             
             $url = "{$baseUrl}/v1/checkouts";
             
+            // Build checkout parameters
+            $shippingCity = $billingCity; // Use billing city as shipping for now
+            $shippingCountry = $billingCountry;
+            $shippingPostcode = $billingPostcode;
+            $shippingStreet = $billingStreet;
+            
+            // For PayPal with authorize intent, use PA (Preauthorization) instead of DB (Debit)
+            $paymentType = 'PA'; // Changed from DB to PA for PayPal authorize intent
+            
             $data = "entityId={$entityId}" .
                         "&customParameters[3DS2_enrolled]=true" .
                         "&customParameters[3DS2_flow]=challenge" .
                         ($environment === 'test' ? "&testMode=EXTERNAL" : "") .
                         "&amount=" . $amount .
                         "&currency=" . config('oppwa.payment.currency', 'GBP') .
-                        "&paymentType=" . config('oppwa.payment.payment_type', 'DB') .
+                        "&paymentType=" . $paymentType .
                         "&merchantTransactionId=" . $order->id .
                         "&customer.email=" . $user->email .
                         "&customer.givenName=" . $user->forenames .
@@ -336,7 +345,13 @@ class PaymentController extends Controller
                         "&billing.postcode=" . urlencode($billingPostcode) .
                         "&billing.state=" . urlencode($billingCity) .
                         "&billing.street1=" . urlencode($billingStreet) .
+                        "&shipping.city=" . urlencode($shippingCity) .
+                        "&shipping.country=" . strtoupper($shippingCountry) .
+                        "&shipping.postcode=" . urlencode($shippingPostcode) .
+                        "&shipping.state=" . urlencode($shippingCity) .
+                        "&shipping.street1=" . urlencode($shippingStreet) .
                         "&customParameters[paypalReference]=true" .
+                        "&notificationUrl=" . urlencode(config('oppwa.'.($environment === 'test' ? 'test' : 'production').'.webhook_endpoint')) .
                         "&integrity=true";
 
             $ch = curl_init();
