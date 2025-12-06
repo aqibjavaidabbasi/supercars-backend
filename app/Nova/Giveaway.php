@@ -15,6 +15,7 @@ use Laravel\Nova\Fields\DateTime;
 use Laravel\Nova\Fields\Currency;
 use Laravel\Nova\Fields\Number;
 use Laravel\Nova\Fields\Boolean;
+use Ebess\AdvancedNovaMediaLibrary\Fields\Images;
 
 class Giveaway extends Resource
 {
@@ -107,28 +108,13 @@ class Giveaway extends Resource
             Boolean::make('Total Tickets HIDDEN', 'ticketsTotalHidden'),
             DateTime::make('Will Draw On', 'closes_at'),
 
-            Panel::make('Images', [
-                Text::make('Giveaway Images', function () {
-                    if (!is_array($this->images)) {
-                        return '';
-                    }
-
-                    return collect($this->images)->map(function ($url) {
-                        return '<img src="' . asset('storage/' . $url) . '" style="max-width: 80px; margin-right: 5px;">';
-                    })->implode('');
-                })->asHtml()->onlyOnDetail(),
-                    ]),
+            Images::make('Images', 'images')
+                ->singleImageRules('dimensions:min_width=100,min_height=100')
+                ->rules('max:30')
+                ->hideFromIndex()
+                ->help('You can upload up to 30 images'),
 
         ];
-
-        for ($i = 0; $i < 6; $i++) {  // for 5 images max
-                $fields[] = Image::make("(optional) Image " . ($i + 1), "image_{$i}")
-                    ->disk('public')
-                    ->path('images')
-                    ->prunable()
-                    ->hideFromIndex()
-                    ->hideFromDetail();
-            }
 
         return $fields;
     }

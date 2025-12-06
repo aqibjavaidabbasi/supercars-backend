@@ -6,10 +6,24 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Collection;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
-class Giveaway extends Model
+class Giveaway extends Model implements HasMedia
 {
-    use HasFactory;
+    use HasFactory, InteractsWithMedia;
+
+    // ...
+
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->width(300)
+            ->height(300)
+            ->nonQueued()
+            ->performOnCollections('images');
+    }
 
     protected $fillable = [
         'title',
@@ -32,75 +46,26 @@ class Giveaway extends Model
 
     protected function casts () {
          return [
-            'images' => 'array',
             'closes_at' => 'datetime',
             'price' => 'decimal:2',
             'alternative_prize' => 'decimal:2',
         ];
     }
 
-
-public function setImage0Attribute($file)
-{
-    $this->uploadImageToArray($file, 0);
-}
-
-public function setImage1Attribute($file)
-{
-    $this->uploadImageToArray($file, 1);
-}
-public function setImage2Attribute($file)
-{
-    $this->uploadImageToArray($file, 2);
-}
-public function setImage3Attribute($file)
-{
-    $this->uploadImageToArray($file, 3);
-}
-public function setImage4Attribute($file)
-{
-    $this->uploadImageToArray($file, 4);
-}
-public function setImage5Attribute($file)
-{
-    $this->uploadImageToArray($file, 5);
-}
-public function setImage6Attribute($file)
-{
-    $this->uploadImageToArray($file, 6);
-}
-public function setImage7Attribute($file)
-{
-    $this->uploadImageToArray($file, 7);
-}
-public function setImage8Attribute($file)
-{
-    $this->uploadImageToArray($file, 8);
-}
-public function setImage9Attribute($file)
-{
-    $this->uploadImageToArray($file, 9);
-}
-
-// ... repeat or dynamically handle them via __call or another approach
-
-protected function uploadImageToArray($file, $index)
-{
-    if (!$file) {
-        return;
+    public function toArray()
+    {
+        $array = parent::toArray();
+        
+        // Override the images attribute with proper URLs for API responses
+        $array['images'] = $this->getMedia('images')->map(function ($media) {
+            $url = $media->getUrl();
+            $path = parse_url($url, PHP_URL_PATH);
+            $path = preg_replace('#^/storage/#', '', $path);
+            return $path;
+        })->toArray();
+        
+        return $array;
     }
-
-    // Use storage disk to save file
-    $path = $file;
-
-    // Retrieve existing images or empty array
-    $images = $this->images ?? [];
-
-    $images[$index] = $path;
-
-    // Save back the images array
-    $this->attributes['images'] = json_encode(array_values($images));
-}
 
     public function winningOrders()
     {
