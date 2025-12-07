@@ -324,32 +324,33 @@ class PaymentController extends Controller
             $shippingPostcode = $billingPostcode;
             $shippingStreet = $billingStreet;
             
-            $data = "entityId={$entityId}" .
-                        "&customParameters[3DS2_enrolled]=true" .
-                        "&customParameters[3DS2_flow]=challenge" .
-                        ($environment === 'test' ? "&testMode=EXTERNAL" : "") .
-                        "&amount=" . $amount .
-                        "&currency=" . config('oppwa.payment.currency', 'GBP') .
-                        "&paymentType=" . config('oppwa.payment.payment_type', 'DB') .
-                        "&merchantTransactionId=" . $order->id .
-                        "&customer.email=" . $user->email .
-                        "&customer.givenName=" . $user->forenames .
-                        "&customer.surname=" . ($user->surname ?? $user->last_name ?? '') .
-                        "&customer.ip=" . request()->ip() .
-                        "&customer.language=EN" .
-                        "&billing.city=" . urlencode($billingCity) .
-                        "&billing.country=" . strtoupper($billingCountry) .
-                        "&billing.postcode=" . urlencode($billingPostcode) .
-                        "&billing.state=" . urlencode($billingCity) .
-                        "&billing.street1=" . urlencode($billingStreet) .
-                        "&shipping.city=" . urlencode($shippingCity) .
-                        "&shipping.country=" . strtoupper($shippingCountry) .
-                        "&shipping.postcode=" . urlencode($shippingPostcode) .
-                        "&shipping.state=" . urlencode($shippingCity) .
-                        "&shipping.street1=" . urlencode($shippingStreet) .
-                        "&customParameters[paypalReference]=true" .
-                        "&notificationUrl=" . urlencode(config('oppwa.'.($environment === 'test' ? 'test' : 'production').'.webhook_endpoint')) .
-                        "&integrity=true";
+                $data = "entityId={$entityId}" .
+                            "&customParameters[3DS2_enrolled]=true" .
+                            "&customParameters[3DS2_flow]=challenge" .
+                            ($environment === 'test' ? "&testMode=EXTERNAL" : "") .
+                            "&amount=" . $amount .
+                            "&currency=" . config('oppwa.payment.currency', 'GBP') .
+                            "&paymentType=" . config('oppwa.payment.payment_type', 'DB') .
+                            "&merchantTransactionId=" . $order->id .
+                            "&customer.email=" . $user->email .
+                            "&customer.givenName=" . $user->forenames .
+                            "&customer.surname=" . ($user->surname ?? $user->last_name ?? '') .
+                            "&customer.ip=" . request()->ip() .
+                            "&customer.language=EN" .
+                            "&billing.city=" . urlencode($billingCity) .
+                            "&billing.country=" . strtoupper($billingCountry) .
+                            "&billing.postcode=" . urlencode($billingPostcode) .
+                            "&billing.state=" . urlencode($billingCity) .
+                            "&billing.street1=" . urlencode($billingStreet) .
+                            "&shipping.city=" . urlencode($shippingCity) .
+                            "&shipping.country=" . strtoupper($shippingCountry) .
+                            "&shipping.postcode=" . urlencode($shippingPostcode) .
+                            "&shipping.state=" . urlencode($shippingCity) .
+                            "&shipping.street1=" . urlencode($shippingStreet) .
+                            "&customParameters[paypalReference]=true" .
+                            "&customParameters[paypal.merchantId]=CZSX87WFJMQ4E" .
+                            "&notificationUrl=" . urlencode(config('oppwa.'.($environment === 'test' ? 'test' : 'production').'.webhook_endpoint')) .
+                            "&integrity=true";
 
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
