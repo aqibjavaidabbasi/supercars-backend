@@ -348,7 +348,8 @@ class PaymentController extends Controller
                             "&shipping.state=" . urlencode($shippingCity) .
                             "&shipping.street1=" . urlencode($shippingStreet) .
                             "&customParameters[paypalReference]=true" .
-                            "&customParameters[paypal.merchantId]=CZSX87WFJMQ4E" .
+                            "&customParameters[paypal.merchantId]=EPC9DKM2ZA2G2" .
+                            "&customParameters[paypal.intent]=authorize" .
                             "&notificationUrl=" . urlencode(config('oppwa.'.($environment === 'test' ? 'test' : 'production').'.webhook_endpoint')) .
                             "&integrity=true";
 
