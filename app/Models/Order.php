@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use App\Mail\OrderCompleted;
 use App\Mail\OrderReceived;
 use App\Models\CreditTransaction;
@@ -132,47 +133,52 @@ class Order extends Model
                 
                 // Send payment confirmation email when payment is resolved (completed or failed)
                 if ($original !== $newStatus && in_array($newStatus, ['completed', 'failed']) && !app()->bound('webhook_processing')) {
-                    try {
-                        $email = $order->user?->email;
-                        if ($email) {
-                            // Ensure giveaways relationship is fresh loaded with pivot data for email
-                            $order->load(['giveaways' => function($query) {
-                                $query->withPivot(['numbers', 'amount']);
-                            }]);
+                    DB::afterCommit(function () use ($order, $newStatus) {
+                        try {
+                            // Reload order to get fresh data
+                            $order->refresh();
+                            $email = $order->user?->email;
                             
-                            // Log ticket information before sending email
-                            $ticketInfo = [];
-                            foreach ($order->giveaways as $giveaway) {
-                                $numbers = json_decode($giveaway->pivot->numbers ?? '[]', true);
-                                $ticketInfo[] = "Giveaway {$giveaway->id}: " . implode(', ', $numbers);
+                            if ($email) {
+                                // Ensure giveaways relationship is fresh loaded with pivot data for email
+                                $order->load(['giveaways' => function($query) {
+                                    $query->withPivot(['numbers', 'amount']);
+                                }]);
+                                
+                                // Log ticket information before sending email
+                                $ticketInfo = [];
+                                foreach ($order->giveaways as $giveaway) {
+                                    $numbers = json_decode($giveaway->pivot->numbers ?? '[]', true);
+                                    $ticketInfo[] = "Giveaway {$giveaway->id}: " . implode(', ', $numbers);
+                                }
+                                Log::info('Sending payment confirmation email from model (after commit)', [
+                                    'order_id' => $order->id,
+                                    'user_email' => $email,
+                                    'payment_status' => $newStatus,
+                                    'giveaways_count' => $order->giveaways->count(),
+                                    'ticket_numbers' => $ticketInfo,
+                                    'has_pivot_numbers' => $order->giveaways->first()?->pivot?->numbers ? 'yes' : 'no'
+                                ]);
+                                
+                                Mail::to($email)->send(new OrderCompleted($order));
+                                Log::info('Payment confirmation email sent successfully from model.', [
+                                    'order_id' => $order->id,
+                                    'status' => $newStatus
+                                ]);
+                            } else {
+                                Log::warning('Payment status updated but user email missing (after commit).', [
+                                    'order_id' => $order->id,
+                                    'status' => $newStatus
+                                ]);
                             }
-                            Log::info('Sending payment confirmation email from model', [
+                        } catch (\Throwable $ex) {
+                            Log::error('Failed to send payment confirmation email from model: ' . $ex->getMessage(), [
                                 'order_id' => $order->id,
-                                'user_email' => $email,
-                                'payment_status' => $newStatus,
-                                'giveaways_count' => $order->giveaways->count(),
-                                'ticket_numbers' => $ticketInfo,
-                                'has_pivot_numbers' => $order->giveaways->first()?->pivot?->numbers ? 'yes' : 'no'
-                            ]);
-                            
-                            Mail::to($email)->send(new OrderCompleted($order));
-                            Log::info('Payment confirmation email sent successfully from model.', [
-                                'order_id' => $order->id,
-                                'status' => $newStatus
-                            ]);
-                        } else {
-                            Log::warning('Payment status updated but user email missing.', [
-                                'order_id' => $order->id,
-                                'status' => $newStatus
+                                'status' => $newStatus,
+                                'exception' => $ex,
                             ]);
                         }
-                    } catch (\Throwable $ex) {
-                        Log::error('Failed to send payment confirmation email from model: ' . $ex->getMessage(), [
-                            'order_id' => $order->id,
-                            'status' => $newStatus,
-                            'exception' => $ex,
-                        ]);
-                    }
+                    });
                 }
             }
         });
