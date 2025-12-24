@@ -313,31 +313,36 @@ class OrdersController extends Controller
 
         // Send OrderCompleted email for credit-only payments (since they start as completed)
         if ($order->status === 'completed' && $order->total == 0 && $order->credit_used > 0) {
-            try {
-                $email = $order->user?->email;
-                if ($email) {
-                    // Ensure giveaways relationship is loaded with pivot data for email
-                    $order->load(['giveaways' => function($query) {
-                        $query->withPivot(['numbers', 'amount']);
-                    }]);
+            DB::afterCommit(function () use ($order) {
+                try {
+                    // Reload fresh data and relationships
+                    $order->refresh();
+                    $email = $order->user?->email;
+                    
+                    if ($email) {
+                        // Ensure giveaways relationship is loaded with pivot data for email
+                        $order->load(['giveaways' => function($query) {
+                            $query->withPivot(['numbers', 'amount']);
+                        }]);
 
-                    Mail::to($email)->send(new OrderCompleted($order));
-                    Log::info('Order completed email sent for credit-only payment.', [
+                        Mail::to($email)->send(new OrderCompleted($order));
+                        Log::info('Order completed email sent for credit-only payment (after commit).', [
+                            'order_id' => $order->id,
+                            'user_email' => $email,
+                            'credit_used' => $order->credit_used
+                        ]);
+                    } else {
+                        Log::warning('Credit-only order completed but user email missing (after commit).', [
+                            'order_id' => $order->id
+                        ]);
+                    }
+                } catch (\Throwable $ex) {
+                    Log::error('Failed to send order completed email for credit payment: ' . $ex->getMessage(), [
                         'order_id' => $order->id,
-                        'user_email' => $email,
-                        'credit_used' => $order->credit_used
-                    ]);
-                } else {
-                    Log::warning('Credit-only order completed but user email missing.', [
-                        'order_id' => $order->id
+                        'exception' => $ex,
                     ]);
                 }
-            } catch (\Throwable $ex) {
-                Log::error('Failed to send order completed email for credit payment: ' . $ex->getMessage(), [
-                    'order_id' => $order->id,
-                    'exception' => $ex,
-                ]);
-            }
+            });
         }
 
         // Auto-save address to user's address book if it's new
